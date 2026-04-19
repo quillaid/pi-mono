@@ -165,6 +165,9 @@ export AWS_BEDROCK_SKIP_AUTH=1
 
 # Set if your proxy only supports HTTP/1.1
 export AWS_BEDROCK_FORCE_HTTP1=1
+
+# Set to enable thinking.display field (not supported in all regions/API versions)
+export AWS_BEDROCK_ENABLE_THINKING_DISPLAY=1
 ```
 
 ### Google Vertex AI

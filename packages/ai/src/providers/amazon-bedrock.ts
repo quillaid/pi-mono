@@ -776,7 +776,7 @@ function mapStopReason(reason: string | undefined): StopReason {
 	}
 }
 
-function isGovCloudBedrockTarget(model: Model<"bedrock-converse-stream">, options: BedrockOptions): boolean {
+function _isGovCloudBedrockTarget(model: Model<"bedrock-converse-stream">, options: BedrockOptions): boolean {
 	const region = options.region || process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
 	if (region?.toLowerCase().startsWith("us-gov-")) {
 		return true;
@@ -795,9 +795,10 @@ function buildAdditionalModelRequestFields(
 	}
 
 	if (model.id.includes("anthropic.claude") || model.id.includes("anthropic/claude")) {
-		// GovCloud Bedrock currently rejects the Claude thinking.display field.
-		// Omit it there until the GovCloud Converse schema catches up.
-		const display = isGovCloudBedrockTarget(model, options) ? undefined : (options.thinkingDisplay ?? "summarized");
+		// The thinking.display field is not supported in all Bedrock regions/API versions yet.
+		// Only include it when AWS_BEDROCK_ENABLE_THINKING_DISPLAY=1 is explicitly set.
+		const enableDisplay = typeof process !== "undefined" && process.env.AWS_BEDROCK_ENABLE_THINKING_DISPLAY === "1";
+		const display = enableDisplay ? (options.thinkingDisplay ?? "summarized") : undefined;
 		const result: Record<string, any> = supportsAdaptiveThinking(model.id)
 			? {
 					thinking: { type: "adaptive", ...(display !== undefined ? { display } : {}) },

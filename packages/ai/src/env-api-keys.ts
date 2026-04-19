@@ -97,6 +97,7 @@ export function getEnvApiKey(provider: any): string | undefined {
 		// 4. AWS_CONTAINER_CREDENTIALS_RELATIVE_URI - ECS task roles
 		// 5. AWS_CONTAINER_CREDENTIALS_FULL_URI - ECS task roles (full URI)
 		// 6. AWS_WEB_IDENTITY_TOKEN_FILE - IRSA (IAM Roles for Service Accounts)
+		// 7. EC2 instance metadata service (IMDSv2) - always available on EC2 instances
 		if (
 			process.env.AWS_PROFILE ||
 			(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) ||
@@ -107,6 +108,10 @@ export function getEnvApiKey(provider: any): string | undefined {
 		) {
 			return "<authenticated>";
 		}
+		// EC2 instance metadata is always available on EC2/AWS instances.
+		// The AWS SDK will automatically discover credentials from IMDS.
+		// We return <authenticated> to signal that credentials will be available at runtime.
+		return "<authenticated>";
 	}
 
 	const envMap: Record<string, string> = {
