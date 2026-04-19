@@ -45,6 +45,35 @@ import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 import { adjustMaxTokensForThinking, buildBaseOptions, clampReasoning } from "./simple-options.js";
 import { transformMessages } from "./transform-messages.js";
 
+/**
+ * Bedrock models that require an inference profile (cross-region routing)
+ * instead of the bare model ID for on-demand invocation.
+ * When the user specifies one of these IDs directly, we auto-prefix with "us."
+ * to use the US system-defined inference profile.
+ */
+const REQUIRES_INFERENCE_PROFILE: RegExp = /^anthropic\.claude-(opus-4-(5|6|7)|sonnet-4-(6|7))/;
+
+/**
+ * Resolve the model ID to use with the Bedrock API.
+ * Bare model IDs for newer Claude models (Opus 4.5+, Sonnet 4.6+) require
+ * cross-region inference profiles. If the ID already has a region prefix
+ * (us., eu., global.) or is an ARN, it's returned as-is.
+ */
+function resolveModelId(modelId: string): string {
+	if (
+		modelId.startsWith("us.") ||
+		modelId.startsWith("eu.") ||
+		modelId.startsWith("global.") ||
+		modelId.startsWith("arn:")
+	) {
+		return modelId;
+	}
+	if (REQUIRES_INFERENCE_PROFILE.test(modelId)) {
+		return `us.${modelId}`;
+	}
+	return modelId;
+}
+
 export type BedrockThinkingDisplay = "summarized" | "omitted";
 
 export interface BedrockOptions extends StreamOptions {
@@ -185,7 +214,7 @@ export const streamBedrock: StreamFunction<"bedrock-converse-stream", BedrockOpt
 			const client = new BedrockRuntimeClient(config);
 			const cacheRetention = resolveCacheRetention(options.cacheRetention);
 			let commandInput = {
-				modelId: model.id,
+				modelId: resolveModelId(model.id),
 				messages: convertMessages(context, model, cacheRetention),
 				system: buildSystemPrompt(context.systemPrompt, model, cacheRetention),
 				inferenceConfig: {

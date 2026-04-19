@@ -4,6 +4,7 @@ import { type BedrockOptions, streamBedrock } from "../src/providers/amazon-bedr
 import type { Context, Model } from "../src/types.js";
 
 interface BedrockThinkingPayload {
+	modelId?: string;
 	additionalModelRequestFields?: {
 		thinking?: { type: string; budget_tokens?: number; display?: string };
 		output_config?: { effort?: string };
@@ -103,5 +104,75 @@ describe("Bedrock thinking payload", () => {
 		expect(payload.additionalModelRequestFields?.thinking).toEqual({ type: "adaptive" });
 		expect(payload.additionalModelRequestFields?.output_config).toEqual({ effort: "high" });
 		expect(payload.additionalModelRequestFields?.anthropic_beta).toBeUndefined();
+	});
+});
+
+describe("Bedrock inference profile resolution", () => {
+	it("auto-prefixes bare Opus 4.6 model ID with us.", async () => {
+		const baseModel = getModel("amazon-bedrock", "us.anthropic.claude-opus-4-6-v1");
+		const model: Model<"bedrock-converse-stream"> = {
+			...baseModel,
+			id: "anthropic.claude-opus-4-6-v1",
+		};
+
+		const payload = await capturePayload(model);
+		expect(payload.modelId).toBe("us.anthropic.claude-opus-4-6-v1");
+	});
+
+	it("auto-prefixes bare Opus 4.7 model ID with us.", async () => {
+		const baseModel = getModel("amazon-bedrock", "us.anthropic.claude-opus-4-7");
+		const model: Model<"bedrock-converse-stream"> = {
+			...baseModel,
+			id: "anthropic.claude-opus-4-7",
+		};
+
+		const payload = await capturePayload(model);
+		expect(payload.modelId).toBe("us.anthropic.claude-opus-4-7");
+	});
+
+	it("auto-prefixes bare Opus 4.5 model ID with us.", async () => {
+		const baseModel = getModel("amazon-bedrock", "us.anthropic.claude-opus-4-5-20251101-v1:0");
+		const model: Model<"bedrock-converse-stream"> = {
+			...baseModel,
+			id: "anthropic.claude-opus-4-5-20251101-v1:0",
+		};
+
+		const payload = await capturePayload(model);
+		expect(payload.modelId).toBe("us.anthropic.claude-opus-4-5-20251101-v1:0");
+	});
+
+	it("preserves us. prefixed model IDs", async () => {
+		const model = getModel("amazon-bedrock", "us.anthropic.claude-opus-4-7");
+
+		const payload = await capturePayload(model);
+		expect(payload.modelId).toBe("us.anthropic.claude-opus-4-7");
+	});
+
+	it("preserves eu. prefixed model IDs", async () => {
+		const model = getModel("amazon-bedrock", "eu.anthropic.claude-opus-4-7");
+
+		const payload = await capturePayload(model);
+		expect(payload.modelId).toBe("eu.anthropic.claude-opus-4-7");
+	});
+
+	it("preserves global. prefixed model IDs", async () => {
+		const model = getModel("amazon-bedrock", "global.anthropic.claude-opus-4-7");
+
+		const payload = await capturePayload(model);
+		expect(payload.modelId).toBe("global.anthropic.claude-opus-4-7");
+	});
+
+	it("does not prefix older Claude models that work with on-demand", async () => {
+		const model = getModel("amazon-bedrock", "anthropic.claude-3-5-haiku-20241022-v1:0");
+
+		const payload = await capturePayload(model, { reasoning: undefined });
+		expect(payload.modelId).toBe("anthropic.claude-3-5-haiku-20241022-v1:0");
+	});
+
+	it("does not prefix Nova models", async () => {
+		const model = getModel("amazon-bedrock", "amazon.nova-lite-v1:0");
+
+		const payload = await capturePayload(model, { reasoning: undefined });
+		expect(payload.modelId).toBe("amazon.nova-lite-v1:0");
 	});
 });
